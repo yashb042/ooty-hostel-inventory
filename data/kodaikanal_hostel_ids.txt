@@ -1,0 +1,11 @@
+# Kodaikanal hostel property IDs (one per line; lines starting with # are ignored)
+# Refresh with: python -m src.discover --city kodaikanal
+
+332361  # The Hosteller Kodaikanal
+331995  # 11 Haven Street
+321127  # Zostel Plus Poombarai (Kodaikanal)
+337233  # C1 Hostel in Boho Kodai
+293090  # Zostel Kodaikanal
+338346  # Santa Maria Hostel Kodaikanal
+302851  # DOSTel Vattakanal
+286599  # Trippr Kodaikanal Backpacker Hostel

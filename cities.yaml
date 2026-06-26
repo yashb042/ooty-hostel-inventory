@@ -1,0 +1,19 @@
+# Property IDs excluded from discovery, collection, and dashboard (one per line in comments).
+excluded_property_ids:
+  - 333877  # Pugal Holidays (Kodaikanal)
+  - 313300  # RJ Inn Hotel (Kodaikanal)
+  - 318018  # Sipas HideOut (Kodaikanal)
+  - 312688  # Aakash Rooms and Cottages (Ooty)
+
+cities:
+  - slug: ooty
+    name: Ooty
+    country: India
+    city_id: 16276
+    hostel_ids_file: data/ooty_hostel_ids.txt
+
+  - slug: kodaikanal
+    name: Kodaikanal
+    country: India
+    city_id: 4879
+    hostel_ids_file: data/kodaikanal_hostel_ids.txt
