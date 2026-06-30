@@ -1,0 +1,23 @@
+cities_file: cities.yaml
+
+api:
+  base_url: https://prod.apigee.hostelworld.com/legacy-hwapi-service/2.2
+  api_key: cvFkm2A4AAefXoupLsChH4jL2mA2VGSyEA0MkRUrqz8Z8x5H
+  origin: https://www.hostelworld.com
+  referer: https://www.hostelworld.com/
+  user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
+  guests: 1
+  num_nights: 1
+  show_rate_restrictions: true
+  application: web
+
+collector:
+  horizon_days: 90
+  min_delay_seconds: 1.5
+  max_delay_seconds: 3.5
+  max_retries: 3
+  retry_backoff_seconds: 5
+
+storage:
+  database_path: data/inventory.db
+  snapshot_retention_days: 90

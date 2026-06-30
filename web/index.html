@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hill Station Hostel Inventory</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --border: #2a3548;
+      --sold: #f97316;
+      --available: #22d3ee;
+      --total: #94a3b8;
+      --group-bg: #121820;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, #1a2332 0%, #121820 100%);
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+    header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: calc(100vh - 88px);
+    }
+    aside {
+      padding: 1rem;
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+    }
+    main { padding: 1rem 1.25rem 2rem; }
+    .filter { margin-bottom: 1rem; }
+    .filter label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    select, input[type="date"] {
+      width: 100%;
+      background: #0f1419;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.65rem;
+    }
+    select[multiple] { min-height: 120px; }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+    }
+    .kpi .label { color: var(--muted); font-size: 0.8rem; }
+    .kpi .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
+    .kpi.sold .value { color: var(--sold); }
+    .kpi.available .value { color: var(--available); }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .tab.active { background: var(--accent); border-color: var(--accent); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .panel h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+    .panel .chart-hint {
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .legend-inline {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+    }
+    .legend-inline span::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      margin-right: 0.35rem;
+      vertical-align: -1px;
+    }
+    .legend-inline .sold-swatch::before { background: linear-gradient(90deg, #7f1d1d, #f97316); }
+    .legend-inline .avail-swatch::before { background: linear-gradient(90deg, #0e7490, #22d3ee); }
+    .table-wrap { overflow-x: auto; }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    table.data-table th, table.data-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.55rem 0.5rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+    table.data-table th {
+      color: var(--muted);
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+    table.data-table th:hover { color: var(--text); }
+    table.data-table th.sorted-asc::after { content: " ▲"; font-size: 0.65rem; }
+    table.data-table th.sorted-desc::after { content: " ▼"; font-size: 0.65rem; }
+    table.data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    table.data-table tr.group-row td {
+      background: var(--group-bg);
+      font-weight: 600;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.yes { background: rgba(34, 211, 238, 0.15); color: var(--available); }
+    .badge.no { background: rgba(148, 163, 184, 0.15); color: var(--total); }
+    .occ-high { color: var(--sold); font-weight: 600; }
+    .occ-mid { color: #fbbf24; }
+    .occ-low { color: var(--available); }
+    .empty {
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+    header .city-bar {
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    header .city-bar label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    header .city-bar select {
+      width: auto;
+      min-width: 200px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hill Station Hostel Inventory</h1>
+    <p id="subtitle">Loading…</p>
+    <div class="city-bar">
+      <label for="cityFilter">City</label>
+      <select id="cityFilter" onchange="render()">
+        <option value="">All cities</option>
+      </select>
+    </div>
+  </header>
+  <div class="layout">
+    <aside id="filters"></aside>
+    <main>
+      <div class="kpis" id="kpis"></div>
+      <div class="tabs" id="tabs"></div>
+      <div id="content"></div>
+    </main>
+  </div>
+  <script>
+    const BASE = document.querySelector("base")?.href?.replace(/\/$/, "") || "";
+    const DATA_PREFIX = BASE ? `${BASE}/data` : "data";
+
+    const SOLD_COLORSCALE = [
+      [0, "#1c1917"],
+      [0.15, "#431407"],
+      [0.35, "#9a3412"],
+      [0.55, "#ea580c"],
+      [0.75, "#fb923c"],
+      [1, "#fed7aa"],
+    ];
+    const CHART_LAYOUT = {
+      paper_bgcolor: "#1a2332",
+      plot_bgcolor: "#1a2332",
+      font: { color: "#e7ecf3" },
+      legend: { orientation: "h", y: 1.12, x: 0 },
+    };
+    const COLOR_SOLD = "#f97316";
+    const COLOR_AVAILABLE = "#22d3ee";
+    const COLOR_TOTAL = "#94a3b8";
+
+    let meta = {}, stayDates = [], rooms = [], snapshots = [];
+    let activeTab = "overview";
+    const tableSort = {};
+    let filtersInitialized = false;
+    let lastCity = "";
+
+    async function runSort(tableId, col, dir) {
+      tableSort[tableId] = { col, dir };
+    }
+
+    async function loadData() {
+      const [metaRes, stayRes, roomRes, snapRes] = await Promise.all([
+        fetch(`${DATA_PREFIX}/meta.json`).then(r => r.json()),
+        fetch(`${DATA_PREFIX}/stay_dates.json`).then(r => r.json()).catch(() =>
+          fetch(`${DATA_PREFIX}/properties.json`).then(r => r.json())
+        ),
+        fetch(`${DATA_PREFIX}/rooms.json`).then(r => r.json()),
+        fetch(`${DATA_PREFIX}/snapshots.json`).then(r => r.json()).catch(() =>
+          fetch(`${DATA_PREFIX}/runs.json`).then(r => r.json())
+        ),
+      ]);
+      meta = metaRes;
+      stayDates = normalizeStayRows(stayRes);
+      rooms = normalizeRoomRows(roomRes);
+      snapshots = snapRes;
+      const cityNames = meta.city_names || (meta.cities || []).map(c => c.name);
+      document.getElementById("subtitle").textContent =
+        `Tracking ${cityNames.join(" · ") || "configured cities"} · ${meta.horizon_days}-day forward visibility · updated ${fmtDateTime(meta.exported_at)}`;
+      const citySel = document.getElementById("cityFilter");
+      const cities = unique(stayDates.map(p => p.city).filter(Boolean));
+      citySel.innerHTML = `<option value="">All cities</option>` +
+        cities.map(c => `<option value="${c}">${c}</option>`).join("");
+      render();
+    }
+
+    function normalizeStayRows(rows) {
+      return rows.map(r => ({
+        ...r,
+        hostel_id: r.hostel_id ?? r.property_id,
+        hostel_name: r.hostel_name ?? r.property_name,
+        total_units: r.total_units ?? r.total_inventory ?? 0,
+        available_units: r.available_units ?? r.available_inventory ?? 0,
+        sold_units: r.sold_units ?? r.sold_inventory ?? 0,
+        occupancy_pct: r.occupancy_pct ?? r.occupancy_rate,
+      }));
+    }
+
+    function normalizeRoomRows(rows) {
+      return rows.map(r => ({
+        ...r,
+        hostel_id: r.hostel_id ?? r.property_id,
+        hostel_name: r.hostel_name ?? r.property_name,
+        total_units: r.total_units ?? r.room_total ?? 0,
+        available_units: r.available_units ?? r.room_available ?? 0,
+        sold_units: r.sold_units ?? r.room_sold ?? 0,
+      }));
+    }
+
+    function unique(arr) { return [...new Set(arr)].sort(); }
+    function sliceDate(v) { return String(v || "").slice(0, 10); }
+
+    function inv(row) {
+      const sold = Number(row?.sold_units ?? 0);
+      const avail = Number(row?.available_units ?? 0);
+      const total = Number(row?.total_units ?? sold + avail);
+      const occ = row?.occupancy_pct ?? (total > 0 ? sold / total : null);
+      return { sold, avail, total, occ };
+    }
+
+    function fmtDate(v) {
+      if (!v) return "—";
+      const d = new Date(sliceDate(v));
+      return isNaN(d) ? sliceDate(v) : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    }
+    function fmtDateTime(v) {
+      if (!v) return "—";
+      const d = new Date(v);
+      return isNaN(d) ? String(v) : d.toLocaleString();
+    }
+    function fmtNum(v) {
+      if (v == null || v === "") return "—";
+      return Number(v).toLocaleString();
+    }
+    function fmtPct(v) {
+      if (v == null || v === "") return "—";
+      const n = Number(v);
+      const pct = n <= 1 ? n * 100 : n;
+      return pct.toFixed(1) + "%";
+    }
+    function fmtMoney(v, currency) {
+      if (v == null || v === "") return "—";
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: currency || "INR",
+          maximumFractionDigits: 0,
+        }).format(v);
+      } catch {
+        return `${currency || ""} ${Number(v).toLocaleString()}`.trim();
+      }
+    }
+    function occClass(pct) {
+      if (pct == null) return "";
+      const n = pct <= 1 ? pct * 100 : pct;
+      if (n >= 70) return "occ-high";
+      if (n >= 35) return "occ-mid";
+      return "occ-low";
+    }
+
+    function getFilters() {
+      const city = document.getElementById("cityFilter")?.value || "";
+      const hostelSel = document.getElementById("hostels");
+      const scrapeSel = document.getElementById("scrapeDates");
+      const stayStart = document.getElementById("stayStart")?.value;
+      const stayEnd = document.getElementById("stayEnd")?.value;
+      const availOnly = document.getElementById("availOnly")?.checked;
+      const hostels = hostelSel ? [...hostelSel.selectedOptions].map(o => o.value) : unique(stayDates.map(p => p.hostel_name));
+      const scrapes = scrapeSel ? [...scrapeSel.selectedOptions].map(o => o.value) : unique(stayDates.map(p => sliceDate(p.scrape_date)));
+      return { city, hostels, scrapes, stayStart, stayEnd, availOnly };
+    }
+
+    function filterStayRows() {
+      const f = getFilters();
+      return stayDates.filter(p => {
+        if (f.city && p.city !== f.city) return false;
+        if (f.hostels.length && !f.hostels.includes(p.hostel_name)) return false;
+        if (f.scrapes.length && !f.scrapes.includes(sliceDate(p.scrape_date))) return false;
+        const stay = sliceDate(p.stay_date);
+        if (f.stayStart && stay < f.stayStart) return false;
+        if (f.stayEnd && stay > f.stayEnd) return false;
+        if (f.availOnly && !p.has_availability) return false;
+        return true;
+      });
+    }
+
+    function filterRoomRows(stayFiltered) {
+      const keys = new Set(stayFiltered.map(r =>
+        `${r.hostel_id}|${sliceDate(r.stay_date)}|${sliceDate(r.scrape_date)}`
+      ));
+      return rooms.filter(r =>
+        keys.has(`${r.hostel_id}|${sliceDate(r.stay_date)}|${sliceDate(r.scrape_date)}`)
+      );
+    }
+
+    function latestByHostelStay(rows) {
+      const map = new Map();
+      for (const row of rows) {
+        const key = `${row.hostel_id}|${sliceDate(row.stay_date)}`;
+        const prev = map.get(key);
+        if (!prev || row.scraped_at > prev.scraped_at) map.set(key, row);
+      }
+      return [...map.values()];
+    }
+
+    function renderFilters() {
+      const city = document.getElementById("cityFilter")?.value || "";
+      const cityRows = city ? stayDates.filter(p => p.city === city) : stayDates;
+      const hostels = unique(cityRows.map(p => p.hostel_name));
+      const scrapes = unique(cityRows.map(p => sliceDate(p.scrape_date)));
+      const stays = unique(cityRows.map(p => sliceDate(p.stay_date)));
+
+      const prevHostels = document.getElementById("hostels")
+        ? [...document.getElementById("hostels").selectedOptions].map(o => o.value) : null;
+      const prevScrapes = document.getElementById("scrapeDates")
+        ? [...document.getElementById("scrapeDates").selectedOptions].map(o => o.value) : null;
+      const prevStayStart = document.getElementById("stayStart")?.value;
+      const prevStayEnd = document.getElementById("stayEnd")?.value;
+      const prevAvailOnly = document.getElementById("availOnly")?.checked;
+
+      const selectedHostels = prevHostels?.length
+        ? hostels.filter(h => prevHostels.includes(h))
+        : hostels;
+      const selectedScrapes = prevScrapes?.length
+        ? scrapes.filter(s => prevScrapes.includes(s))
+        : scrapes;
+
+      document.getElementById("filters").innerHTML = `
+        <div class="filter"><label>Hostels</label>
+          <select id="hostels" multiple onchange="render()">${hostels.map(h =>
+            `<option${selectedHostels.includes(h) ? " selected" : ""}>${h}</option>`).join("")}</select></div>
+        <div class="filter"><label>Scrape snapshots</label>
+          <select id="scrapeDates" multiple onchange="render()">${scrapes.map(s =>
+            `<option${selectedScrapes.includes(s) ? " selected" : ""}>${s}</option>`).join("")}</select>
+          <p class="chart-hint" style="margin:0.35rem 0 0">${scrapes.length} snapshot(s) · Cmd/Ctrl+click to multi-select</p></div>
+        <div class="filter"><label>Stay date from</label><input type="date" id="stayStart" value="${prevStayStart || stays[0] || ""}" onchange="render()"></div>
+        <div class="filter"><label>Stay date to</label><input type="date" id="stayEnd" value="${prevStayEnd || stays[stays.length - 1] || ""}" onchange="render()"></div>
+        <div class="filter"><label><input type="checkbox" id="availOnly" onchange="render()"${prevAvailOnly ? " checked" : ""}> Available only</label></div>`;
+    }
+
+    function renderKpis(rows) {
+      const latest = latestByHostelStay(rows);
+      const totals = latest.reduce((acc, r) => {
+        const { sold, avail, total } = inv(r);
+        acc.sold += sold; acc.avail += avail; acc.total += total;
+        return acc;
+      }, { sold: 0, avail: 0, total: 0 });
+      const occ = totals.total ? ((totals.sold / totals.total) * 100).toFixed(1) : "0";
+      const kpis = [
+        ["Hostels", unique(latest.map(r => r.hostel_name)).length, ""],
+        ["Stay dates", unique(latest.map(r => sliceDate(r.stay_date))).length, ""],
+        ["Snapshots", unique(rows.map(r => r.scraped_at)).length, ""],
+        ["Sold beds", totals.sold, "sold"],
+        ["Available beds", totals.avail, "available"],
+        ["Occupancy (latest)", occ + "%", ""],
+      ];
+      document.getElementById("kpis").innerHTML = kpis.map(([l,v,cls]) =>
+        `<div class="kpi ${cls}"><div class="label">${l}</div><div class="value">${v}</div></div>`).join("");
+    }
+
+    function renderHeatmap(rows) {
+      const scrapes = unique(rows.map(r => sliceDate(r.scrape_date))).sort();
+      const modeEl = document.getElementById("heatmapMode");
+      const scrapeEl = document.getElementById("heatmapScrape");
+      const mode = modeEl?.value || "single";
+      const selectedScrape = scrapeEl?.value || scrapes[scrapes.length - 1];
+
+      let heat, titleSuffix;
+      if (mode === "compare" && scrapes.length >= 2) {
+        const older = scrapes[0];
+        const newer = scrapes[scrapes.length - 1];
+        const olderRows = rows.filter(r => sliceDate(r.scrape_date) === older);
+        const newerRows = rows.filter(r => sliceDate(r.scrape_date) === newer);
+        const hostels = unique([...olderRows, ...newerRows].map(r => r.hostel_name));
+        const dates = unique([...olderRows, ...newerRows].map(r => sliceDate(r.stay_date))).sort();
+        const z = hostels.map(h => dates.map(d => {
+          const o = olderRows.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+          const n = newerRows.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+          return inv(n).sold - inv(o).sold;
+        }));
+        const text = hostels.map(h => dates.map(d => {
+          const o = olderRows.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+          const n = newerRows.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+          if (!o && !n) return "";
+          return `Δ sold: ${inv(n).sold - inv(o).sold}<br>${older}: ${inv(o).sold} sold<br>${newer}: ${inv(n).sold} sold`;
+        }));
+        Plotly.newPlot("heatmap", [{
+          z, x: dates, y: hostels, text,
+          hovertemplate: "%{y}<br>%{x}<br>%{text}<extra></extra>",
+          type: "heatmap",
+          colorscale: [[0, "#0e7490"], [0.5, "#1a2332"], [1, "#f97316"]],
+          zmid: 0,
+          colorbar: { title: "Δ sold beds", tickfont: { color: "#e7ecf3" }, titlefont: { color: "#e7ecf3" } },
+        }], {
+          ...CHART_LAYOUT,
+          margin: { l: 140, r: 20, t: 20, b: 80 },
+          xaxis: { title: "Stay date" },
+          yaxis: { title: "Hostel" },
+        }, { responsive: true });
+        return;
+      }
+
+      heat = rows.filter(r => sliceDate(r.scrape_date) === selectedScrape);
+      titleSuffix = selectedScrape;
+      const hostels = unique(heat.map(r => r.hostel_name));
+      const dates = unique(heat.map(r => sliceDate(r.stay_date))).sort();
+      const z = hostels.map(h => dates.map(d => {
+        const row = heat.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+        return row ? inv(row).sold : 0;
+      }));
+      const text = hostels.map(h => dates.map(d => {
+        const row = heat.find(r => r.hostel_name === h && sliceDate(r.stay_date) === d);
+        if (!row) return "";
+        const { sold, avail, total } = inv(row);
+        return `Snapshot: ${titleSuffix}<br>Sold: ${sold}<br>Available: ${avail}<br>Total: ${total}`;
+      }));
+      Plotly.newPlot("heatmap", [{
+        z, x: dates, y: hostels, text, hovertemplate: "%{y}<br>%{x}<br>%{text}<extra></extra>",
+        type: "heatmap", colorscale: SOLD_COLORSCALE,
+        colorbar: { title: "Sold beds", tickfont: { color: "#e7ecf3" }, titlefont: { color: "#e7ecf3" } },
+      }], {
+        ...CHART_LAYOUT,
+        margin: { l: 140, r: 20, t: 20, b: 80 },
+        xaxis: { title: "Stay date" },
+        yaxis: { title: "Hostel" },
+      }, { responsive: true });
+    }
+
+    function heatmapControls(rows) {
+      const scrapes = unique(rows.map(r => sliceDate(r.scrape_date))).sort();
+      const prevMode = document.getElementById("heatmapMode")?.value || "single";
+      const prevScrape = document.getElementById("heatmapScrape")?.value;
+      const scrapeOptions = scrapes.map(s =>
+        `<option value="${s}"${s === (prevScrape || scrapes[scrapes.length - 1]) ? " selected" : ""}>${s}</option>`
+      ).join("");
+      const compareDisabled = scrapes.length < 2 ? " disabled" : "";
+      return `
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:flex-end">
+          <div class="filter" style="margin:0;min-width:160px">
+            <label>Heatmap view</label>
+            <select id="heatmapMode" onchange="renderContent()">
+              <option value="single"${prevMode === "single" ? " selected" : ""}>Single snapshot</option>
+              <option value="compare"${prevMode === "compare" ? " selected" : ""}${compareDisabled}>Compare oldest ↔ newest</option>
+            </select>
+          </div>
+          <div class="filter" style="margin:0;min-width:160px">
+            <label>Snapshot</label>
+            <select id="heatmapScrape" onchange="renderContent()">${scrapeOptions}</select>
+          </div>
+        </div>`;
+    }
+
+    function renderTrend(rows) {
+      const byScrapeHostel = {};
+      for (const r of rows) {
+        const key = `${sliceDate(r.scrape_date)}|${r.hostel_name}`;
+        if (!byScrapeHostel[key]) byScrapeHostel[key] = { sold: 0, avail: 0, total: 0 };
+        const { sold, avail, total } = inv(r);
+        byScrapeHostel[key].sold += sold;
+        byScrapeHostel[key].avail += avail;
+        byScrapeHostel[key].total += total;
+      }
+      const hostels = unique(rows.map(r => r.hostel_name));
+      const traces = [];
+      for (const name of hostels) {
+        const pts = Object.entries(byScrapeHostel)
+          .filter(([k]) => k.endsWith(`|${name}`))
+          .map(([k, v]) => ({ x: k.split("|")[0], ...v }))
+          .sort((a, b) => a.x.localeCompare(b.x));
+        if (!pts.length) continue;
+        traces.push({
+          x: pts.map(p => p.x), y: pts.map(p => p.sold), name: `${name} — sold`,
+          type: "bar", marker: { color: COLOR_SOLD }, legendgroup: name,
+        });
+        traces.push({
+          x: pts.map(p => p.x), y: pts.map(p => p.avail), name: `${name} — available`,
+          type: "bar", marker: { color: COLOR_AVAILABLE }, legendgroup: name,
+        });
+        traces.push({
+          x: pts.map(p => p.x), y: pts.map(p => p.total), name: `${name} — total capacity`,
+          mode: "lines+markers", line: { color: COLOR_TOTAL, dash: "dot", width: 2 },
+          marker: { size: 5 }, legendgroup: name,
+        });
+      }
+      Plotly.newPlot("trend", traces, {
+        ...CHART_LAYOUT,
+        barmode: "stack",
+        margin: { l: 60, r: 20, t: 40, b: 60 },
+        xaxis: { title: "Scrape date" },
+        yaxis: { title: "Inventory units (beds)" },
+      }, { responsive: true });
+    }
+
+    function sortRows(rows, tableId, defaultCol) {
+      const sort = tableSort[tableId] || { col: defaultCol, dir: "asc" };
+      const col = sort.col;
+      const dir = sort.dir === "asc" ? 1 : -1;
+      return [...rows].sort((a, b) => {
+        let av = a[col], bv = b[col];
+        if (col === "sold" || col === "available" || col === "total" || col === "occupancy") {
+          av = inv(a)[col === "occupancy" ? "occ" : col === "available" ? "avail" : col];
+          bv = inv(b)[col === "occupancy" ? "occ" : col === "available" ? "avail" : col];
+        }
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+        return String(av).localeCompare(String(bv)) * dir;
+      });
+    }
+
+    function sortableTable(tableId, columns, rows, { groupBy = null } = {}) {
+      if (!rows.length) return `<div class="empty">No rows for current filters.</div>`;
+      const sort = tableSort[tableId] || { col: columns[0].key, dir: "asc" };
+      const sorted = sortRows(rows, tableId, columns[0].key);
+      let body = "";
+      let lastGroup = null;
+      for (const row of sorted) {
+        if (groupBy) {
+          const g = row[groupBy] || "Unknown";
+          if (g !== lastGroup) {
+            body += `<tr class="group-row"><td colspan="${columns.length}">${g}</td></tr>`;
+            lastGroup = g;
+          }
+        }
+        body += `<tr>${columns.map(c => {
+          const raw = c.value ? c.value(row) : row[c.key];
+          const cls = c.num ? ' class="num"' : "";
+          return `<td${cls}>${raw ?? "—"}</td>`;
+        }).join("")}</tr>`;
+      }
+      const head = columns.map(c => {
+        const active = sort.col === c.key;
+        const cls = active ? ` class="sorted-${sort.dir}"` : "";
+        return `<th${cls} onclick="toggleSort('${tableId}','${c.key}')">${c.label}</th>`;
+      }).join("");
+      return `<div class="table-wrap"><table class="data-table" id="${tableId}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    function toggleSort(tableId, col) {
+      const prev = tableSort[tableId];
+      if (prev && prev.col === col) {
+        tableSort[tableId] = { col, dir: prev.dir === "asc" ? "desc" : "asc" };
+      } else {
+        tableSort[tableId] = { col, dir: "asc" };
+      }
+      renderContent();
+    }
+
+    function hostelSummaryTable(rows) {
+      const scrapes = unique(rows.map(r => sliceDate(r.scrape_date)));
+      const multiSnapshot = scrapes.length > 1;
+      const agg = {};
+      for (const r of rows) {
+        const key = multiSnapshot
+          ? `${sliceDate(r.scrape_date)}|${r.city}|${r.hostel_name}`
+          : `${r.city}|${r.hostel_name}`;
+        if (!agg[key]) {
+          agg[key] = {
+            scrape_date: sliceDate(r.scrape_date),
+            city: r.city,
+            hostel_name: r.hostel_name,
+            sold: 0, avail: 0, total: 0, dates: 0,
+          };
+        }
+        const { sold, avail, total } = inv(r);
+        agg[key].sold += sold;
+        agg[key].avail += avail;
+        agg[key].total += total;
+        agg[key].dates += 1;
+      }
+      const summaryRows = Object.values(agg).map(a => ({
+        ...a,
+        occupancy: a.total > 0 ? a.sold / a.total : null,
+      }));
+      const cols = [
+        ...(multiSnapshot ? [{ key: "scrape_date", label: "Snapshot", value: r => fmtDate(r.scrape_date) }] : []),
+        { key: "city", label: "City" },
+        { key: "hostel_name", label: "Hostel" },
+        { key: "dates", label: "Stay dates", num: true, value: r => fmtNum(r.dates) },
+        { key: "sold", label: "Sold (beds)", num: true, value: r => fmtNum(r.sold) },
+        { key: "available", label: "Available", num: true, value: r => fmtNum(r.avail) },
+        { key: "total", label: "Total capacity", num: true, value: r => fmtNum(r.total) },
+        { key: "occupancy", label: "Occupancy", num: true, value: r => `<span class="${occClass(r.occupancy)}">${fmtPct(r.occupancy)}</span>` },
+      ];
+      const groupBy = multiSnapshot ? "scrape_date" : "city";
+      return sortableTable("tbl-summary", cols, summaryRows, { groupBy });
+    }
+
+    function dailyDetailTable(rows) {
+      const sorted = [...rows].sort((a, b) => {
+        const sd = sliceDate(b.scrape_date).localeCompare(sliceDate(a.scrape_date));
+        if (sd !== 0) return sd;
+        const stay = sliceDate(a.stay_date).localeCompare(sliceDate(b.stay_date));
+        if (stay !== 0) return stay;
+        return (a.hostel_name || "").localeCompare(b.hostel_name || "");
+      });
+      const cols = [
+        { key: "scrape_date", label: "Snapshot", value: r => fmtDate(r.scrape_date) },
+        { key: "city", label: "City" },
+        { key: "hostel_name", label: "Hostel" },
+        { key: "stay_date", label: "Stay date", value: r => fmtDate(r.stay_date) },
+        { key: "sold", label: "Sold", num: true, value: r => fmtNum(inv(r).sold) },
+        { key: "available", label: "Available", num: true, value: r => fmtNum(inv(r).avail) },
+        { key: "total", label: "Total", num: true, value: r => fmtNum(inv(r).total) },
+        { key: "occupancy", label: "Occupancy", num: true, value: r => `<span class="${occClass(inv(r).occ)}">${fmtPct(inv(r).occ)}</span>` },
+        { key: "lowest_dorm_price", label: "Lowest dorm", num: true, value: r => fmtMoney(r.lowest_dorm_price, r.currency) },
+        { key: "has_availability", label: "Open?", value: r => r.has_availability ? '<span class="badge yes">Yes</span>' : '<span class="badge no">No</span>' },
+      ];
+      return sortableTable("tbl-daily", cols, sorted.slice(0, 1000), { groupBy: "scrape_date" });
+    }
+
+    function roomBreakdownTable(roomRows) {
+      const sorted = [...roomRows].sort((a, b) => {
+        const sd = sliceDate(b.scrape_date).localeCompare(sliceDate(a.scrape_date));
+        if (sd !== 0) return sd;
+        const stay = sliceDate(a.stay_date).localeCompare(sliceDate(b.stay_date));
+        if (stay !== 0) return stay;
+        return (a.hostel_name + a.room_name).localeCompare(b.hostel_name + b.room_name);
+      });
+      const cols = [
+        { key: "scrape_date", label: "Snapshot", value: r => fmtDate(r.scrape_date) },
+        { key: "city", label: "City" },
+        { key: "hostel_name", label: "Hostel" },
+        { key: "stay_date", label: "Stay date", value: r => fmtDate(r.stay_date) },
+        { key: "room_name", label: "Room type" },
+        { key: "room_category", label: "Category" },
+        { key: "sold", label: "Sold", num: true, value: r => fmtNum(inv(r).sold) },
+        { key: "available", label: "Available", num: true, value: r => fmtNum(inv(r).avail) },
+        { key: "total", label: "Capacity", num: true, value: r => fmtNum(inv(r).total) },
+        { key: "lowest_price", label: "Price", num: true, value: r => fmtMoney(r.lowest_price, r.currency) },
+      ];
+      return sortableTable("tbl-rooms", cols, sorted.slice(0, 1000), { groupBy: "scrape_date" });
+    }
+
+    function snapshotsTable() {
+      const cols = [
+        { key: "id", label: "Run #", num: true },
+        { key: "status", label: "Status" },
+        { key: "started_at", label: "Started", value: r => fmtDateTime(r.started_at) },
+        { key: "finished_at", label: "Finished", value: r => fmtDateTime(r.finished_at) },
+        { key: "properties_count", label: "Hostels", num: true, value: r => fmtNum(r.properties_count ?? r.hostels_count) },
+        { key: "stay_dates_count", label: "Stay dates", num: true, value: r => fmtNum(r.stay_dates_count) },
+        { key: "requests_total", label: "Requests", num: true, value: r => fmtNum(r.requests_total) },
+        { key: "requests_failed", label: "Failed", num: true, value: r => fmtNum(r.requests_failed) },
+      ];
+      return sortableTable("tbl-snapshots", cols, snapshots.slice(0, 50));
+    }
+
+    const TAB_LABELS = {
+      overview: "Overview",
+      trends: "Trends",
+      summary: "Hostel summary",
+      daily: "Daily detail",
+      rooms: "Room breakdown",
+      snapshots: "Collection runs",
+    };
+
+    function render() {
+      const city = document.getElementById("cityFilter")?.value || "";
+      if (!filtersInitialized || city !== lastCity) {
+        renderFilters();
+        filtersInitialized = true;
+        lastCity = city;
+      }
+      const rows = filterStayRows();
+      renderKpis(rows);
+      const tabs = Object.keys(TAB_LABELS);
+      document.getElementById("tabs").innerHTML = tabs.map(t =>
+        `<button class="tab ${activeTab===t?"active":""}" onclick="activeTab='${t}'; renderContent()">${TAB_LABELS[t]}</button>`).join("");
+      renderContent(rows);
+    }
+
+    function renderContent(rows = filterStayRows()) {
+      if (!stayDates.length) {
+        document.getElementById("content").innerHTML = `<div class="panel empty">Waiting for first cloud collection run…</div>`;
+        return;
+      }
+      const roomRows = filterRoomRows(rows);
+      if (activeTab === "overview") {
+        document.getElementById("content").innerHTML = `
+          <div class="panel">
+            <h2>Sold inventory heatmap</h2>
+            <p class="chart-hint">Pick a scrape snapshot or compare oldest vs newest among your selection. Warmer = more beds sold.</p>
+            ${heatmapControls(rows)}
+            <div class="legend-inline">
+              <span class="sold-swatch">Sold (warm)</span>
+              <span class="avail-swatch">Available (cool) — see hover</span>
+            </div>
+            <div id="heatmap"></div>
+          </div>`;
+        renderHeatmap(rows);
+      } else if (activeTab === "trends") {
+        document.getElementById("content").innerHTML = `
+          <div class="panel">
+            <h2>Inventory by scrape snapshot</h2>
+            <p class="chart-hint">Historical trend across selected scrape dates. Stacked bars: sold (orange) + available (cyan). Dotted line = total capacity.</p>
+            <div class="legend-inline">
+              <span class="sold-swatch">Sold</span>
+              <span class="avail-swatch">Available</span>
+            </div>
+            <div id="trend"></div>
+          </div>`;
+        renderTrend(rows);
+      } else if (activeTab === "summary") {
+        document.getElementById("content").innerHTML = `
+          <div class="panel"><h2>Summary by hostel</h2>
+          <p class="chart-hint">Aggregated per snapshot when multiple scrape dates are selected. Click column headers to sort.</p>
+          ${hostelSummaryTable(rows)}</div>`;
+      } else if (activeTab === "daily") {
+        document.getElementById("content").innerHTML = `
+          <div class="panel"><h2>Daily stay-date detail</h2>
+          <p class="chart-hint">All rows for selected snapshots (hostel × stay date × scrape). Grouped by snapshot.</p>
+          ${dailyDetailTable(rows)}</div>`;
+      } else if (activeTab === "rooms") {
+        document.getElementById("content").innerHTML = `
+          <div class="panel"><h2>Room breakdown</h2>
+          <p class="chart-hint">Room-type inventory across all selected scrape snapshots.</p>
+          ${roomBreakdownTable(roomRows)}</div>`;
+      } else {
+        document.getElementById("content").innerHTML = `
+          <div class="panel"><h2>Collection runs</h2>
+          <p class="chart-hint">Scrape snapshot history (scheduled daily via GitHub Actions).</p>
+          ${snapshotsTable()}</div>`;
+      }
+    }
+
+    loadData().catch(err => {
+      document.getElementById("subtitle").textContent = "Failed to load data";
+      document.getElementById("content").innerHTML = `<div class="panel empty">${err}</div>`;
+    });
+  </script>
+</body>
+</html>

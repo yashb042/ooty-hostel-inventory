@@ -1,0 +1,8 @@
+# Ooty hostel property IDs (one per line; lines starting with # are ignored)
+# Refresh with: python -m src.discover --city ooty
+
+296165  # Bykerstops @ prabhus place Ooty
+316864  # The Hosteller Ooty
+292129  # Zostel Ooty
+338779  # Zostel Ooty (Pudumund)
+313568  # goSTOPS Ooty
